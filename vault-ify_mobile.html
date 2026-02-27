@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Vaultify App — Screen Time + Spend</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red: #E83A2F;
+  --orange: #F5820D;
+  --yellow: #F5C800;
+  --green: #1DB87C;
+  --blue: #2B6BE8;
+  --purple: #8B5CF6;
+  --bg: #0A0908;
+  --bg2: #111009;
+  --surface: #181612;
+  --surface2: #201E19;
+  --border: #2A2720;
+  --text: #F0EDE8;
+  --text-2: #9A9590;
+  --text-3: #4A4740;
+  --red-soft: rgba(232,58,47,0.12);
+  --green-soft: rgba(29,184,124,0.12);
+  --font: 'Syne', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --r: 18px;
+  --r-sm: 10px;
+  --t: 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;-webkit-tap-highlight-color:transparent;}
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--text);
+  max-width:430px;
+  margin:0 auto;
+  min-height:100vh;
+  overflow-x:hidden;
+  position:relative;
+  padding-bottom:80px;
+}
+button{cursor:pointer;font-family:var(--font);border:none;background:none;}
+
+/* Grain */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  opacity:0.5;
+}
+
+/* ═══ STATUS BAR ═══ */
+.status-bar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:0.6rem 1.25rem 0.3rem;
+  font-family:var(--mono);font-size:0.72rem;font-weight:500;
+  color:var(--text-2);
+  position:sticky;top:0;z-index:100;
+  background:var(--bg);
+}
+.status-time{font-weight:700;color:var(--text);}
+.status-icons{display:flex;gap:0.4rem;align-items:center;}
+
+/* ═══ SCREEN SYSTEM ═══ */
+.screen{display:none;animation:fadeIn 0.22s ease;}
+.screen.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ═══ BOTTOM NAV ═══ */
+.bottom-nav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:430px;
+  background:rgba(18,16,12,0.92);
+  backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+  display:flex;
+  padding:0.6rem 0 1rem;
+  z-index:200;
+}
+.nav-tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:0.2rem;
+  padding:0.3rem 0;
+  font-size:0.6rem;font-weight:700;letter-spacing:0.3px;
+  color:var(--text-3);
+  transition:color var(--t);
+}
+.nav-tab.active{color:var(--red);}
+.nav-tab-icon{font-size:1.3rem;line-height:1;}
+
+/* ═══ SHARED COMPONENTS ═══ */
+.page-header{
+  padding:1rem 1.25rem 0.5rem;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.page-title{font-size:1.4rem;font-weight:800;letter-spacing:-0.5px;}
+.page-sub{font-size:0.72rem;color:var(--text-3);font-family:var(--mono);margin-top:0.15rem;}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:1rem 1.1rem;
+  margin:0 1rem 0.75rem;
+}
+.card-label{font-size:0.62rem;font-family:var(--mono);color:var(--text-3);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:0.4rem;}
+.card-val{font-size:2rem;font-weight:800;letter-spacing:-1px;}
+
+.pill{
+  display:inline-flex;align-items:center;gap:0.3rem;
+  padding:0.2rem 0.6rem;border-radius:100px;
+  font-size:0.62rem;font-weight:700;font-family:var(--mono);
+}
+.pill-red{background:var(--red-soft);color:var(--red);}
+.pill-green{background:var(--green-soft);color:var(--green);}
+.pill-yellow{background:rgba(245,200,0,0.12);color:var(--yellow);}
+.pill-blue{background:rgba(43,107,232,0.12);color:var(--blue);}
+.pill-purple{background:rgba(139,92,246,0.12);color:var(--purple);}
+
+.section-label{
+  font-size:0.62rem;font-family:var(--mono);color:var(--text-3);
+  text-transform:uppercase;letter-spacing:2px;
+  padding:0 1.25rem;margin-bottom:0.5rem;margin-top:1rem;
+}
+
+/* ═══════════════════════════════
+   SCREEN 1 — HOME
+═══════════════════════════════ */
+.home-hero{
+  padding:1rem 1.25rem 0.75rem;
+  position:relative;
+  overflow:hidden;
+}
+.home-greeting{
+  font-size:0.72rem;font-family:var(--mono);color:var(--text-3);margin-bottom:0.2rem;
+}
+.home-name{font-size:1.6rem;font-weight:800;letter-spacing:-0.5px;margin-bottom:0.75rem;}
+
+.leak-ring-wrap{
+  display:flex;justify-content:center;margin:0.5rem 0 1rem;
+  position:relative;
+}
+.leak-ring-wrap svg{filter:drop-shadow(0 0 20px rgba(232,58,47,0.3));}
+.ring-center{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.ring-pct{font-size:2.2rem;font-weight:800;color:var(--red);letter-spacing:-2px;}
+.ring-word{font-size:0.6rem;font-family:var(--mono);color:var(--text-3);text-transform:uppercase;letter-spacing:2px;}
+
+.home-kpi-row{
+  display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;
+  padding:0 1rem;margin-bottom:0.75rem;
+}
+.hk-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r-sm);
+  padding:0.8rem 0.9rem;
+}
+.hk-label{font-size:0.6rem;font-family:var(--mono);color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem;}
+.hk-val{font-size:1.3rem;font-weight:800;letter-spacing:-0.5px;}
+
+/* sync banner */
+.sync-banner{
+  margin:0 1rem 0.75rem;
+  padding:0.85rem 1rem;
+  background:linear-gradient(135deg,rgba(43,107,232,0.15),rgba(139,92,246,0.1));
+  border:1px solid rgba(43,107,232,0.25);
+  border-radius:var(--r);
+  display:flex;align-items:center;gap:0.75rem;
+}
+.sync-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:var(--blue);
+  box-shadow:0 0 8px rgba(43,107,232,0.6);
+  flex-shrink:0;
+  animation:pulse-sync 2s ease-in-out infinite;
+}
+@keyframes pulse-sync{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.3);opacity:0.7}}
+.sync-text{flex:1;}
+.sync-title{font-size:0.78rem;font-weight:700;margin-bottom:0.1rem;}
+.sync-sub{font-size:0.62rem;font-family:var(--mono);color:var(--text-3);}
+.sync-btn{
+  background:var(--blue);color:white;
+  padding:0.35rem 0.8rem;border-radius:100px;
+  font-size:0.65rem;font-weight:700;
+  white-space:nowrap;transition:all var(--t);
+}
+.sync-btn:hover{transform:scale(1.03);}
+
+/* ghost alert */
+.ghost-alert{
+  margin:0 1rem 0.75rem;
+  padding:1rem;
+  background:var(--red-soft);
+  border:1px solid rgba(232,58,47,0.25);
+  border-radius:var(--r);
+}
+.ghost-alert-head{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;}
+.ghost-alert-title{font-weight:800;font-size:0.85rem;flex:1;}
+.ghost-alert-count{
+  background:var(--red);color:white;
+  width:20px;height:20px;border-radius:50%;
+  font-size:0.65rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+}
+.ghost-item-mini{
+  display:flex;align-items:center;gap:0.6rem;
+  padding:0.5rem 0;
+  border-top:1px solid rgba(232,58,47,0.15);
+}
+.gi-icon{font-size:1.1rem;}
+.gi-info{flex:1;}
+.gi-name{font-size:0.78rem;font-weight:700;}
+.gi-usage{font-size:0.62rem;font-family:var(--mono);color:var(--text-3);}
+.gi-amt{font-size:0.78rem;font-weight:700;color:var(--red);font-family:var(--mono);}
+
+/* ═══════════════════════════════
+   SCREEN 2 — SCREEN TIME
+═══════════════════════════════ */
+.permission-banner{
+  margin:0.75rem 1rem;
+  padding:1.25rem;
+  background:linear-gradient(135deg,rgba(139,92,246,0.15),rgba(43,107,232,0.1));
+  border:1px solid rgba(139,92,246,0.3);
+  border-radius:var(--r);
+  text-align:center;
+}
+.perm-icon{font-size:2rem;margin-bottom:0.5rem;}
+.perm-title{font-weight:800;font-size:0.95rem;margin-bottom:0.3rem;}
+.perm-sub{font-size:0.72rem;font-family:var(--mono);color:var(--text-2);line-height:1.6;margin-bottom:0.85rem;}
+.perm-btn{
+  background:var(--purple);color:white;
+  padding:0.65rem 1.5rem;border-radius:100px;
+  font-weight:700;font-size:0.85rem;
+  display:inline-block;transition:all var(--t);
+}
+.perm-btn:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(139,92,246,0.4);}
+
+.day-tabs{
+  display:flex;gap:0.4rem;padding:0 1rem;margin-bottom:0.75rem;overflow-x:auto;
+  scrollbar-width:none;
+}
+.day-tabs::-webkit-scrollbar{display:none;}
+.day-tab{
+  padding:0.35rem 0.85rem;border-radius:100px;
+  font-size:0.72rem;font-weight:700;
+  background:var(--surface);border:1px solid var(--border);
+  color:var(--text-2);white-space:nowrap;transition:all var(--t);
+}
+.day-tab.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+
+.app-usage-list{padding:0 1rem;}
+.app-usage-item{
+  display:flex;align-items:center;gap:0.85rem;
+  padding:0.75rem 0;
+  border-bottom:1px solid var(--border);
+}
+.app-usage-item:last-child{border-bottom:none;}
+.app-icon-big{
+  width:44px;height:44px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;flex-shrink:0;
+}
+.app-usage-info{flex:1;min-width:0;}
+.app-usage-name{font-weight:700;font-size:0.88rem;margin-bottom:0.2rem;}
+.app-usage-bar-wrap{background:var(--surface2);border-radius:100px;height:4px;margin-bottom:0.2rem;overflow:hidden;}
+.app-usage-bar{height:100%;border-radius:100px;transition:width 0.8s cubic-bezier(0.4,0,0.2,1);}
+.app-usage-meta{font-size:0.62rem;font-family:var(--mono);color:var(--text-3);}
+.app-usage-time{font-family:var(--mono);font-size:0.82rem;font-weight:700;text-align:right;flex-shrink:0;}
+.ghost-tag{
+  display:block;
+  font-size:0.55rem;font-family:var(--mono);
+  background:var(--red-soft);color:var(--red);
+  padding:0.1rem 0.35rem;border-radius:3px;
+  font-weight:700;text-transform:uppercase;
+  margin-top:0.2rem;width:fit-content;
+}
+
+.weekly-chart{
+  margin:0 1rem 0.75rem;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:1rem;
+}
+.wc-title{font-size:0.72rem;font-family:var(--mono);color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.85rem;}
+.wc-bars{display:flex;align-items:flex-end;gap:0.4rem;height:80px;}
+.wc-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:0.3rem;}
+.wc-bar{width:100%;border-radius:4px 4px 0 0;min-height:4px;transition:height 0.6s ease;}
+.wc-day{font-size:0.58rem;font-family:var(--mono);color:var(--text-3);}
+
+/* ═══════════════════════════════
+   SCREEN 3 — GHOST SUBS
+═══════════════════════════════ */
+.ghost-header-card{
+  margin:0.75rem 1rem;
+  padding:1rem;
+  background:var(--red-soft);
+  border:1px solid rgba(232,58,47,0.2);
+  border-radius:var(--r);
+  display:flex;align-items:center;gap:0.85rem;
+}
+.ghost-score-ring{position:relative;flex-shrink:0;}
+.ghost-score-ring svg{transform:rotate(-90deg);}
+.ghost-ring-label{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-weight:800;font-size:0.95rem;color:var(--red);line-height:1;
+}
+.ghost-ring-label span{font-size:0.45rem;font-family:var(--mono);color:var(--text-3);text-transform:uppercase;letter-spacing:1px;}
+.ghost-header-info{flex:1;}
+.ghi-title{font-weight:800;font-size:0.95rem;margin-bottom:0.3rem;}
+.ghi-sub{font-size:0.68rem;font-family:var(--mono);color:var(--text-2);line-height:1.6;}
+
+.ghost-sub-card{
+  margin:0 1rem 0.6rem;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);
+  overflow:hidden;
+  transition:border-color var(--t);
+}
+.ghost-sub-card.is-ghost{border-color:rgba(232,58,47,0.3);}
+.ghost-sub-card.is-ok{border-color:rgba(29,184,124,0.2);}
+.gsc-header{
+  display:flex;align-items:center;gap:0.85rem;
+  padding:0.85rem 1rem;
+}
+.gsc-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;}
+.gsc-info{flex:1;}
+.gsc-name{font-weight:700;font-size:0.88rem;}
+.gsc-cost{font-size:0.68rem;font-family:var(--mono);color:var(--text-2);}
+.gsc-right{text-align:right;}
+.gsc-status{font-size:0.7rem;font-weight:700;font-family:var(--mono);}
+.gsc-status.ghost{color:var(--red);}
+.gsc-status.ok{color:var(--green);}
+.gsc-body{
+  padding:0.6rem 1rem 0.85rem;
+  border-top:1px solid var(--border);
+  background:var(--surface2);
+}
+.gsc-usage-row{
+  display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;
+}
+.gsc-usage-label{font-size:0.65rem;font-family:var(--mono);color:var(--text-3);width:80px;flex-shrink:0;}
+.gsc-usage-bar-wrap{flex:1;background:var(--bg);border-radius:100px;height:5px;overflow:hidden;}
+.gsc-usage-bar{height:100%;border-radius:100px;}
+.gsc-usage-val{font-size:0.65rem;font-family:var(--mono);font-weight:700;width:50px;text-align:right;flex-shrink:0;}
+.gsc-action-row{display:flex;gap:0.5rem;margin-top:0.6rem;}
+.gsc-btn{
+  flex:1;padding:0.5rem;border-radius:100px;
+  font-size:0.72rem;font-weight:700;
+  border:1px solid var(--border);
+  background:var(--surface);color:var(--text-2);
+  transition:all var(--t);
+}
+.gsc-btn.cancel{background:var(--red-soft);color:var(--red);border-color:rgba(232,58,47,0.3);}
+.gsc-btn.cancel:hover{background:var(--red);color:white;}
+.gsc-btn.keep{background:var(--green-soft);color:var(--green);border-color:rgba(29,184,124,0.3);}
+
+/* ═══════════════════════════════
+   SCREEN 4 — SYNC / CONNECT
+═══════════════════════════════ */
+.sync-screen-hero{
+  padding:1.5rem 1.25rem 0.75rem;
+  text-align:center;
+}
+.sync-logo{
+  width:64px;height:64px;
+  background:linear-gradient(135deg,var(--blue),var(--purple));
+  border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;
+  margin:0 auto 1rem;
+  box-shadow:0 12px 32px rgba(43,107,232,0.3);
+}
+.sync-headline{font-size:1.3rem;font-weight:800;letter-spacing:-0.5px;margin-bottom:0.4rem;}
+.sync-desc{font-size:0.78rem;font-family:var(--mono);color:var(--text-2);line-height:1.7;}
+
+.sync-steps{padding:0 1rem;margin:1rem 0;}
+.sync-step{
+  display:flex;align-items:flex-start;gap:0.85rem;
+  padding:0.85rem;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r-sm);
+  margin-bottom:0.5rem;
+}
+.ss-num{
+  width:28px;height:28px;border-radius:50%;
+  background:var(--blue);color:white;
+  font-weight:800;font-size:0.75rem;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.ss-title{font-weight:700;font-size:0.82rem;margin-bottom:0.2rem;}
+.ss-sub{font-size:0.65rem;font-family:var(--mono);color:var(--text-2);line-height:1.5;}
+
+.qr-card{
+  margin:0 1rem 0.75rem;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:1.25rem;text-align:center;
+}
+.qr-box{
+  width:120px;height:120px;
+  background:white;border-radius:12px;
+  margin:0 auto 0.75rem;
+  display:flex;align-items:center;justify-content:center;
+  font-size:3rem;
+  position:relative;overflow:hidden;
+}
+.qr-pattern{
+  position:absolute;inset:0;
+  background-image:
+    repeating-linear-gradient(0deg,transparent,transparent 7px,rgba(0,0,0,0.85) 7px,rgba(0,0,0,0.85) 8px),
+    repeating-linear-gradient(90deg,transparent,transparent 7px,rgba(0,0,0,0.85) 7px,rgba(0,0,0,0.85) 8px);
+  opacity:0.6;
+}
+.qr-inner{position:relative;z-index:1;font-size:2rem;}
+.qr-label{font-weight:700;font-size:0.82rem;margin-bottom:0.25rem;}
+.qr-sub{font-size:0.65rem;font-family:var(--mono);color:var(--text-3);}
+
+.connected-devices{
+  margin:0 1rem 0.75rem;
+}
+.device-item{
+  display:flex;align-items:center;gap:0.85rem;
+  padding:0.85rem 1rem;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-sm);margin-bottom:0.5rem;
+}
+.device-icon{
+  width:38px;height:38px;border-radius:10px;
+  background:rgba(43,107,232,0.12);
+  display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;
+}
+.device-info{flex:1;}
+.device-name{font-weight:700;font-size:0.82rem;}
+.device-status{font-size:0.62rem;font-family:var(--mono);color:var(--green);}
+.device-live{
+  width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 6px rgba(29,184,124,0.6);
+  animation:pulse-sync 2s ease-in-out infinite;
+}
+
+.big-sync-btn{
+  margin:0 1rem;
+  width:calc(100% - 2rem);
+  padding:1rem;
+  background:linear-gradient(135deg,var(--blue),var(--purple));
+  color:white;border-radius:var(--r);
+  font-weight:800;font-size:1rem;
+  box-shadow:0 8px 24px rgba(43,107,232,0.35);
+  transition:all var(--t);
+  display:flex;align-items:center;justify-content:center;gap:0.5rem;
+}
+.big-sync-btn:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(43,107,232,0.45);}
+
+/* ═══ DATA SHARED BANNER ═══ */
+.data-sent-banner{
+  display:none;
+  margin:0 1rem 0.75rem;
+  padding:0.85rem 1rem;
+  background:var(--green-soft);
+  border:1px solid rgba(29,184,124,0.25);
+  border-radius:var(--r);
+  text-align:center;
+  font-size:0.78rem;font-weight:700;color:var(--green);
+}
+.data-sent-banner.show{display:block;}
+
+/* ═══ TOAST ═══ */
+.toast-box{
+  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  background:var(--text);color:var(--bg);
+  padding:0.6rem 1.2rem;border-radius:100px;
+  font-size:0.78rem;font-weight:700;
+  z-index:9998;
+  white-space:nowrap;
+  opacity:0;transition:opacity 0.25s ease;
+  pointer-events:none;
+}
+.toast-box.show{opacity:1;}
+
+/* ═══ PERMISSION GRANTED SCREEN ═══ */
+.perm-granted-overlay{
+  display:none;
+  position:fixed;inset:0;z-index:500;
+  background:rgba(10,9,8,0.95);
+  align-items:center;justify-content:center;flex-direction:column;
+  text-align:center;padding:2rem;
+}
+.perm-granted-overlay.show{display:flex;}
+.perm-check{
+  width:80px;height:80px;border-radius:50%;
+  background:var(--green-soft);
+  border:2px solid var(--green);
+  display:flex;align-items:center;justify-content:center;
+  font-size:2.5rem;margin-bottom:1.25rem;
+  animation:pop 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes pop{from{transform:scale(0)}to{transform:scale(1)}}
+.perm-granted-title{font-size:1.5rem;font-weight:800;margin-bottom:0.5rem;}
+.perm-granted-sub{font-size:0.8rem;font-family:var(--mono);color:var(--text-2);line-height:1.7;margin-bottom:1.5rem;}
+.perm-continue{
+  background:var(--green);color:white;
+  padding:0.75rem 2rem;border-radius:100px;
+  font-weight:800;font-size:0.9rem;
+  transition:all var(--t);
+}
+
+/* ═══ AUTH SCREEN ═══ */
+.auth-screen{
+  min-height:100vh;
+  display:flex;flex-direction:column;
+  padding:1.5rem 1.25rem 2rem;
+}
+.auth-screen-logo{
+  display:flex;align-items:center;gap:0.6rem;
+  font-size:1.2rem;font-weight:900;
+  margin-bottom:2rem;
+}
+.auth-drop{
+  width:36px;height:36px;
+  background:#FFF44F;
+  border-radius:50% 50% 50% 12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;
+}
+.auth-headline{font-size:1.6rem;font-weight:800;letter-spacing:-0.5px;margin-bottom:0.4rem;}
+.auth-sub{font-size:0.78rem;font-family:var(--mono);color:var(--text-2);line-height:1.7;margin-bottom:1.75rem;}
+
+.auth-switcher{
+  display:flex;background:var(--surface2);
+  border-radius:100px;padding:3px;margin-bottom:1.5rem;
+}
+.auth-sw-btn{
+  flex:1;padding:0.55rem;border-radius:100px;
+  font-size:0.82rem;font-weight:700;
+  color:var(--text-2);transition:all var(--t);
+  border:none;background:none;cursor:pointer;
+  font-family:var(--font);
+}
+.auth-sw-btn.active{
+  background:var(--surface);color:var(--text);
+  box-shadow:0 2px 8px rgba(0,0,0,0.3);
+}
+
+.auth-fields{display:flex;flex-direction:column;gap:0.85rem;margin-bottom:1rem;}
+.auth-lbl{font-size:0.65rem;font-family:var(--mono);color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.3rem;display:block;}
+.auth-inp{
+  width:100%;padding:0.85rem 1rem;
+  background:var(--surface2);
+  border:1.5px solid var(--border);
+  border-radius:12px;
+  color:var(--text);font-size:0.9rem;
+  font-family:var(--font);outline:none;
+  transition:border-color var(--t);
+}
+.auth-inp:focus{border-color:var(--red);}
+.auth-inp::placeholder{color:var(--text-3);}
+
+.auth-big-btn{
+  width:100%;padding:1rem;
+  background:var(--red);color:white;
+  border-radius:100px;border:none;cursor:pointer;
+  font-weight:800;font-size:1rem;
+  font-family:var(--font);
+  box-shadow:0 6px 20px rgba(232,58,47,0.35);
+  transition:all var(--t);margin-top:0.25rem;
+}
+.auth-big-btn:active{transform:scale(0.97);}
+
+.auth-device-note{
+  margin-top:1rem;
+  padding:0.85rem;
+  background:rgba(43,107,232,0.1);
+  border:1px solid rgba(43,107,232,0.2);
+  border-radius:12px;
+  font-size:0.72rem;font-family:var(--mono);
+  color:var(--text-2);line-height:1.6;
+}
+
+.auth-trust-strip{
+  display:flex;justify-content:center;gap:1.25rem;
+  margin-top:1.25rem;flex-wrap:wrap;
+}
+.ats-item{
+  font-size:0.65rem;font-family:var(--mono);color:var(--text-3);
+  display:flex;align-items:center;gap:0.3rem;
+}
+.ats-item span{color:var(--green);}
+
+.auth-sw-txt{
+  text-align:center;margin-top:1rem;
+  font-size:0.75rem;font-family:var(--mono);color:var(--text-3);
+}
+.auth-sw-lnk{color:var(--red);font-weight:700;cursor:pointer;}
+
+/* nav user pill */
+.status-user{
+  font-size:0.68rem;font-family:var(--mono);font-weight:700;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:100px;
+  padding:0.15rem 0.55rem;
+  color:var(--text-2);
+  display:none;
+}
+.status-user.show{display:inline-block;}
+</style>
+</head>
+<body>
+
+<!-- Permission Granted Overlay -->
+<div class="perm-granted-overlay" id="perm-overlay">
+  <div class="perm-check">✓</div>
+  <div class="perm-granted-title">Permission Granted!</div>
+  <div class="perm-granted-sub">Vaultify can now read your screen time data.<br>Your usage stays on this device — never uploaded.</div>
+  <button class="perm-continue" onclick="dismissPermOverlay()">View My Screen Time →</button>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <span class="status-time" id="clock">9:41</span>
+  <div class="status-icons">
+    <span class="status-user" id="status-user"></span>
+    <span>📶</span><span>🔋</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN: AUTH (shown first)
+══════════════════════════════ -->
+<div class="screen active" id="screen-auth">
+  <div class="auth-screen">
+    <div class="auth-screen-logo">
+      <div class="auth-drop">💸</div>
+      Vault-ify
+    </div>
+
+    <div class="auth-headline">Stop the Hidden Leak.</div>
+    <div class="auth-sub">Sign up to link your phone's screen time with the Vaultify web dashboard — and finally see which subscriptions you're paying for but never using.</div>
+
+    <div class="auth-switcher">
+      <button class="auth-sw-btn active" id="mob-tab-signup" onclick="mobSwitchTab('signup')">Create Account</button>
+      <button class="auth-sw-btn" id="mob-tab-login" onclick="mobSwitchTab('login')">Log In</button>
+    </div>
+
+    <!-- Sign up fields -->
+    <div id="mob-signup-fields" class="auth-fields">
+      <div>
+        <label class="auth-lbl">Full Name</label>
+        <input class="auth-inp" type="text" id="mob-su-name" placeholder="Akshara Agrawal">
+      </div>
+      <div>
+        <label class="auth-lbl">Email</label>
+        <input class="auth-inp" type="email" id="mob-su-email" placeholder="akshara@email.com">
+      </div>
+      <div>
+        <label class="auth-lbl">Password</label>
+        <input class="auth-inp" type="password" id="mob-su-pass" placeholder="Min. 8 characters">
+      </div>
+    </div>
+
+    <!-- Login fields -->
+    <div id="mob-login-fields" class="auth-fields" style="display:none;">
+      <div>
+        <label class="auth-lbl">Email</label>
+        <input class="auth-inp" type="email" id="mob-li-email" placeholder="akshara@email.com">
+      </div>
+      <div>
+        <label class="auth-lbl">Password</label>
+        <input class="auth-inp" type="password" id="mob-li-pass" placeholder="Your password">
+      </div>
+    </div>
+
+    <div class="auth-device-note" id="mob-device-note">
+      🔗 Use the <strong>same email</strong> you registered on the Vaultify website — your screen time data will automatically appear on the desktop dashboard.
+    </div>
+
+    <button class="auth-big-btn" id="mob-auth-btn" onclick="mobDoAuth()">Create Account & Link Devices →</button>
+
+    <div class="auth-trust-strip">
+      <div class="ats-item"><span>🔒</span> No card needed</div>
+      <div class="ats-item"><span>📱</span> Screen time stays local</div>
+      <div class="ats-item"><span>🔗</span> Auto-links to desktop</div>
+    </div>
+
+    <div class="auth-sw-txt" id="mob-sw-txt">
+      Already have an account? <span class="auth-sw-lnk" onclick="mobSwitchTab('login')">Log in →</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN: HOME
+══════════════════════════════ -->
+<div class="screen" id="screen-home">
+
+  <div class="home-hero">
+    <div class="home-greeting">Good morning,</div>
+    <div class="home-name" id="home-greeting-name">Akshara 👋</div>
+  </div>
+
+  <!-- Leak Ring -->
+  <div class="leak-ring-wrap">
+    <svg viewBox="0 0 180 180" width="180" height="180">
+      <circle fill="none" stroke="#2A2720" stroke-width="14" cx="90" cy="90" r="76"/>
+      <circle fill="none" stroke="#E83A2F" stroke-width="14" cx="90" cy="90" r="76"
+        stroke-linecap="round"
+        stroke-dasharray="477.5"
+        stroke-dashoffset="325"
+        style="transform-origin:center;transform:rotate(-90deg);animation:ring-anim 1.5s ease 0.3s both;"
+      />
+    </svg>
+    <div class="ring-center">
+      <span class="ring-pct">32%</span>
+      <span class="ring-word">Leakage</span>
+    </div>
+  </div>
+  <style>
+  @keyframes ring-anim{from{stroke-dashoffset:477.5}to{stroke-dashoffset:325}}
+  </style>
+
+  <div class="home-kpi-row">
+    <div class="hk-card">
+      <div class="hk-label">Monthly Leak</div>
+      <div class="hk-val" style="color:var(--red)">₹2,847</div>
+    </div>
+    <div class="hk-card">
+      <div class="hk-label">Ghost Subs</div>
+      <div class="hk-val" style="color:var(--orange)">3 found</div>
+    </div>
+    <div class="hk-card">
+      <div class="hk-label">Screen Time</div>
+      <div class="hk-val" style="color:var(--blue)">4h 22m</div>
+    </div>
+    <div class="hk-card">
+      <div class="hk-label">Saveable</div>
+      <div class="hk-val" style="color:var(--green)">₹1,298</div>
+    </div>
+  </div>
+
+  <!-- Sync Banner -->
+  <div class="sync-banner">
+    <div class="sync-dot"></div>
+    <div class="sync-text">
+      <div class="sync-title">Desktop Synced</div>
+      <div class="sync-sub">vaultify.app · Last sync: 2 min ago</div>
+    </div>
+    <button class="sync-btn" onclick="goSync()">Manage →</button>
+  </div>
+
+  <!-- Ghost Alert -->
+  <div class="ghost-alert">
+    <div class="ghost-alert-head">
+      <span style="font-size:1.1rem">👻</span>
+      <span class="ghost-alert-title">Ghost Subscriptions Detected</span>
+      <span class="ghost-alert-count">3</span>
+    </div>
+    <div class="ghost-item-mini">
+      <span class="gi-icon">📺</span>
+      <div class="gi-info">
+        <div class="gi-name">Netflix</div>
+        <div class="gi-usage">0 min used · 23 days idle</div>
+      </div>
+      <span class="gi-amt">₹649/mo</span>
+    </div>
+    <div class="ghost-item-mini">
+      <span class="gi-icon">🎨</span>
+      <div class="gi-info">
+        <div class="gi-name">Adobe CC</div>
+        <div class="gi-usage">12 min used · mostly idle</div>
+      </div>
+      <span class="gi-amt">₹1,675/mo</span>
+    </div>
+    <div class="ghost-item-mini">
+      <span class="gi-icon">💼</span>
+      <div class="gi-info">
+        <div class="gi-name">LinkedIn Premium</div>
+        <div class="gi-usage">8 min used · 19 days ago</div>
+      </div>
+      <span class="gi-amt">₹1,999/mo</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN: SCREEN TIME
+══════════════════════════════ -->
+<div class="screen" id="screen-screentime">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">Screen Time</div>
+      <div class="page-sub">Usage vs. what you're paying for</div>
+    </div>
+    <span class="pill pill-purple">Today</span>
+  </div>
+
+  <!-- Permission Banner (shown before grant) -->
+  <div class="permission-banner" id="perm-banner">
+    <div class="perm-icon">📱</div>
+    <div class="perm-title">Allow Screen Time Access</div>
+    <div class="perm-sub">Vaultify needs permission to read app usage data to detect ghost subscriptions. This data stays on your device and is never uploaded.</div>
+    <button class="perm-btn" onclick="grantPermission()">Allow Access →</button>
+  </div>
+
+  <!-- Content shown after permission -->
+  <div id="screentime-content" style="display:none;">
+
+    <div class="weekly-chart">
+      <div class="wc-title">This Week — Daily Screen Time</div>
+      <div class="wc-bars" id="wc-bars"></div>
+    </div>
+
+    <!-- Day tabs -->
+    <div class="day-tabs">
+      <button class="day-tab active" onclick="setDayTab(this)">Today</button>
+      <button class="day-tab" onclick="setDayTab(this)">Yesterday</button>
+      <button class="day-tab" onclick="setDayTab(this)">Mon</button>
+      <button class="day-tab" onclick="setDayTab(this)">Sun</button>
+      <button class="day-tab" onclick="setDayTab(this)">Sat</button>
+    </div>
+
+    <div class="section-label">App Usage — Paid Subscriptions</div>
+    <div class="app-usage-list" id="app-usage-list"></div>
+
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN: GHOST SUBS
+══════════════════════════════ -->
+<div class="screen" id="screen-ghosts">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">Ghost Subs</div>
+      <div class="page-sub">Paying for. Not using.</div>
+    </div>
+  </div>
+
+  <div class="ghost-header-card">
+    <div class="ghost-score-ring">
+      <svg viewBox="0 0 80 80" width="80" height="80">
+        <circle fill="none" stroke="#2A2720" stroke-width="7" cx="40" cy="40" r="34"/>
+        <circle fill="none" stroke="#E83A2F" stroke-width="7" cx="40" cy="40" r="34"
+          stroke-linecap="round" stroke-dasharray="213.6" stroke-dashoffset="150"
+          style="transform-origin:center;transform:rotate(-90deg)"/>
+      </svg>
+      <div class="ghost-ring-label">3<span>ghosts</span></div>
+    </div>
+    <div class="ghost-header-info">
+      <div class="ghi-title">₹4,323/month wasted</div>
+      <div class="ghi-sub">Based on screen time data — you're paying for apps you haven't opened in weeks.</div>
+    </div>
+  </div>
+
+  <div id="ghost-sub-list"></div>
+
+</div>
+
+<!-- ══════════════════════════════
+     SCREEN: SYNC
+══════════════════════════════ -->
+<div class="screen" id="screen-sync">
+
+  <div class="sync-screen-hero">
+    <div class="sync-logo">🔗</div>
+    <div class="sync-headline">Connect to Desktop</div>
+    <div class="sync-desc">Your screen time data powers the Vaultify web dashboard. Sync once and see ghost subs on any device.</div>
+  </div>
+
+  <div class="sync-steps">
+    <div class="sync-step">
+      <div class="ss-num">1</div>
+      <div>
+        <div class="ss-title">Open vaultify.app on your laptop</div>
+        <div class="ss-sub">Make sure you're on the same Wi-Fi network for fastest sync.</div>
+      </div>
+    </div>
+    <div class="sync-step">
+      <div class="ss-num">2</div>
+      <div>
+        <div class="ss-title">Click "Connect Mobile" in the dashboard</div>
+        <div class="ss-sub">A QR code will appear on your desktop screen.</div>
+      </div>
+    </div>
+    <div class="sync-step">
+      <div class="ss-num">3</div>
+      <div>
+        <div class="ss-title">Scan the QR code below</div>
+        <div class="ss-sub">Your screen time data is sent securely over your local network — never via any server.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="qr-card">
+    <div class="qr-box">
+      <div class="qr-pattern"></div>
+      <div class="qr-inner">💸</div>
+    </div>
+    <div class="qr-label">Your Sync Code</div>
+    <div class="qr-sub" style="font-family:var(--mono);margin-top:0.4rem;font-size:0.78rem;color:var(--blue);">VLTF-AK-7829</div>
+    <div class="qr-sub">Valid for 10 minutes · Local network only</div>
+  </div>
+
+  <div class="section-label" style="margin-top:0.5rem;">Connected Devices</div>
+  <div class="connected-devices">
+    <div class="device-item">
+      <div class="device-icon">💻</div>
+      <div class="device-info">
+        <div class="device-name">Akshara's MacBook</div>
+        <div class="device-status">● Live — syncing screen time</div>
+      </div>
+      <div class="device-live"></div>
+    </div>
+    <div class="device-item">
+      <div class="device-icon">🖥️</div>
+      <div class="device-info">
+        <div class="device-name">Home Desktop</div>
+        <div class="device-status" style="color:var(--text-3);">Last seen 2 days ago</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="data-sent-banner" id="data-sent-banner">
+    ✅ Screen time data pushed to desktop successfully!
+  </div>
+
+  <button class="big-sync-btn" onclick="doSync()">
+    <span>🔄</span> Push Screen Time to Desktop
+  </button>
+
+</div>
+
+<!-- ══════════════════════════════
+     BOTTOM NAV
+══════════════════════════════ -->
+<nav class="bottom-nav">
+  <button class="nav-tab active" id="tab-home" onclick="switchScreen('home',this)">
+    <span class="nav-tab-icon">🏠</span>Home
+  </button>
+  <button class="nav-tab" id="tab-screentime" onclick="switchScreen('screentime',this)">
+    <span class="nav-tab-icon">📱</span>Screen Time
+  </button>
+  <button class="nav-tab" id="tab-ghosts" onclick="switchScreen('ghosts',this)">
+    <span class="nav-tab-icon">👻</span>Ghosts
+  </button>
+  <button class="nav-tab" id="tab-sync" onclick="switchScreen('sync',this)">
+    <span class="nav-tab-icon">🔗</span>Sync
+  </button>
+</nav>
+
+<!-- Toast -->
+<div class="toast-box" id="toast"></div>
+
+<script>
+/* ═══ CLOCK ═══ */
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2,'0');
+  const m = now.getMinutes().toString().padStart(2,'0');
+  document.getElementById('clock').textContent = h + ':' + m;
+}
+updateClock();
+setInterval(updateClock, 10000);
+
+/* ═══ MOBILE AUTH ═══ */
+let mobUser = null;
+
+function mobSwitchTab(tab) {
+  const isSignup = tab === 'signup';
+  document.getElementById('mob-signup-fields').style.display = isSignup ? 'flex' : 'none';
+  document.getElementById('mob-login-fields').style.display  = isSignup ? 'none' : 'flex';
+  document.getElementById('mob-tab-signup').classList.toggle('active', isSignup);
+  document.getElementById('mob-tab-login').classList.toggle('active', !isSignup);
+  document.getElementById('mob-auth-btn').textContent = isSignup ? 'Create Account & Link Devices →' : 'Log In & Sync Screen Time →';
+  document.getElementById('mob-device-note').textContent = isSignup
+    ? '🔗 Use the same email you registered on the Vaultify website — your screen time data will automatically appear on the desktop dashboard.'
+    : '🔗 Logging in with your Vaultify account email will automatically sync this phone\'s screen time to your desktop dashboard.';
+  document.getElementById('mob-sw-txt').innerHTML = isSignup
+    ? 'Already have an account? <span class="auth-sw-lnk" onclick="mobSwitchTab(\'login\')">Log in →</span>'
+    : 'New to Vaultify? <span class="auth-sw-lnk" onclick="mobSwitchTab(\'signup\')">Create account →</span>';
+  document.getElementById('mob-auth-btn').dataset.tab = tab;
+}
+
+function mobDoAuth() {
+  const tab = document.getElementById('mob-auth-btn').dataset.tab || 'signup';
+  let name, email;
+  if(tab === 'signup') {
+    name  = document.getElementById('mob-su-name').value.trim()  || 'Akshara Agrawal';
+    email = document.getElementById('mob-su-email').value.trim() || 'akshara@email.com';
+  } else {
+    email = document.getElementById('mob-li-email').value.trim() || 'akshara@email.com';
+    name  = email.split('@')[0].replace(/[._]/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  }
+  mobUser = { name, email };
+  const firstName = name.split(' ')[0];
+
+  // Show user pill in status bar
+  const pill = document.getElementById('status-user');
+  pill.textContent = firstName;
+  pill.classList.add('show');
+
+  // Update home screen greeting
+  document.getElementById('home-greeting-name').textContent = firstName + ' 👋';
+
+  toast(tab === 'signup'
+    ? `🎉 Account created! Same email on desktop = auto-synced.`
+    : `👋 Welcome back, ${firstName}! Syncing screen time to desktop...`);
+
+  // Go to home
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-home').classList.add('active');
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-home').classList.add('active');
+}
+
+
+
+/* ═══ SCREEN SWITCH ═══ */
+function switchScreen(id, tab) {
+  if(!mobUser && id !== 'auth') {
+    toast('👆 Please sign up or log in first');
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-auth').classList.add('active');
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    return;
+  }
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  tab.classList.add('active');
+  window.scrollTo(0,0);
+}
+function goSync() {
+  switchScreen('sync', document.getElementById('tab-sync'));
+}
+
+/* ═══ TOAST ═══ */
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ═══ APP USAGE DATA ═══ */
+const appData = [
+  { name:'Instagram',    icon:'📸', color:'#E1306C', bg:'rgba(225,48,108,0.12)', mins:87,  maxMins:180, paid:false,  cost:0,     lastUsed:'today' },
+  { name:'YouTube',      icon:'▶️',  color:'#FF0000', bg:'rgba(255,0,0,0.12)',    mins:64,  maxMins:180, paid:false,  cost:0,     lastUsed:'today' },
+  { name:'Spotify',      icon:'🎵', color:'#1DB954', bg:'rgba(29,185,84,0.12)',  mins:52,  maxMins:180, paid:true,   cost:119,   lastUsed:'today' },
+  { name:'WhatsApp',     icon:'💬', color:'#25D366', bg:'rgba(37,211,102,0.12)', mins:41,  maxMins:180, paid:false,  cost:0,     lastUsed:'today' },
+  { name:'Netflix',      icon:'📺', color:'#E50914', bg:'rgba(229,9,20,0.12)',   mins:0,   maxMins:180, paid:true,   cost:649,   lastUsed:'23 days ago' },
+  { name:'Adobe CC',     icon:'🎨', color:'#FF0000', bg:'rgba(255,0,0,0.1)',     mins:12,  maxMins:180, paid:true,   cost:1675,  lastUsed:'today' },
+  { name:'LinkedIn',     icon:'💼', color:'#0A66C2', bg:'rgba(10,102,194,0.12)', mins:8,   maxMins:180, paid:true,   cost:1999,  lastUsed:'19 days ago' },
+  { name:'Hotstar',      icon:'⭐', color:'#1f80e0', bg:'rgba(31,128,224,0.12)', mins:22,  maxMins:180, paid:true,   cost:299,   lastUsed:'today' },
+];
+
+function renderAppUsage() {
+  const list = document.getElementById('app-usage-list');
+  const paid = appData.filter(a => a.paid);
+  const others = appData.filter(a => !a.paid);
+  const all = [...paid, ...others];
+  list.innerHTML = all.map(a => {
+    const pct = Math.round((a.mins / 120) * 100);
+    const timeStr = a.mins === 0 ? '0 min' : a.mins >= 60 ? Math.floor(a.mins/60)+'h '+( a.mins%60)+'m' : a.mins+'m';
+    const isGhost = a.paid && a.mins < 15;
+    return `
+    <div class="app-usage-item">
+      <div class="app-icon-big" style="background:${a.bg}">${a.icon}</div>
+      <div class="app-usage-info">
+        <div class="app-usage-name">${a.name}${a.paid ? ` <span style="font-size:0.6rem;color:var(--text-3);font-family:var(--mono);">₹${a.cost}/mo</span>` : ''}</div>
+        <div class="app-usage-bar-wrap">
+          <div class="app-usage-bar" style="width:${Math.min(pct,100)}%;background:${isGhost ? 'var(--red)' : a.color}"></div>
+        </div>
+        <div class="app-usage-meta">Last used: ${a.lastUsed}</div>
+        ${isGhost ? '<span class="ghost-tag">👻 Ghost Sub</span>' : ''}
+      </div>
+      <div class="app-usage-time" style="color:${isGhost?'var(--red)':'var(--text)'}">${timeStr}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══ WEEKLY CHART ═══ */
+const weekData = [
+  {day:'Mon',mins:280},{day:'Tue',mins:210},{day:'Wed',mins:340},
+  {day:'Thu',mins:195},{day:'Fri',mins:420},{day:'Sat',mins:380},{day:'Sun',mins:262}
+];
+function renderWeeklyChart() {
+  const max = Math.max(...weekData.map(d=>d.mins));
+  const bars = document.getElementById('wc-bars');
+  if(!bars) return;
+  bars.innerHTML = weekData.map((d,i) => {
+    const h = Math.round((d.mins/max)*72);
+    const isToday = i === 6;
+    return `
+    <div class="wc-bar-wrap">
+      <div class="wc-bar" style="height:${h}px;background:${isToday?'var(--red)':'var(--surface2)'};border:1px solid ${isToday?'var(--red)':'var(--border)'}"></div>
+      <div class="wc-day" style="color:${isToday?'var(--text)':'var(--text-3)'}">${d.day}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══ GHOST SUBS DATA ═══ */
+const ghostSubs = [
+  {
+    name:'Netflix', icon:'📺', color:'#E50914', bg:'rgba(229,9,20,0.12)',
+    cost:649, annualCost:7788, isGhost:true,
+    screenMins:0, lastOpened:'23 days ago',
+    paymentHistory:'Paid monthly for 8 months',
+    verdict:'You\'ve spent ₹5,192 without watching a single minute this month.'
+  },
+  {
+    name:'Adobe Creative Cloud', icon:'🎨', color:'#FF0000', bg:'rgba(255,0,0,0.1)',
+    cost:1675, annualCost:20100, isGhost:true,
+    screenMins:12, lastOpened:'today',
+    paymentHistory:'Paid monthly for 14 months',
+    verdict:'12 min/month for ₹1,675 = ₹139/minute. Switch to Canva Free?'
+  },
+  {
+    name:'LinkedIn Premium', icon:'💼', color:'#0A66C2', bg:'rgba(10,102,194,0.12)',
+    cost:1999, annualCost:23988, isGhost:true,
+    screenMins:8, lastOpened:'19 days ago',
+    paymentHistory:'Paid monthly for 6 months',
+    verdict:'You\'ve spent ₹11,994 on Premium with almost zero InMail usage.'
+  },
+  {
+    name:'Spotify Premium', icon:'🎵', color:'#1DB954', bg:'rgba(29,185,84,0.12)',
+    cost:119, annualCost:1428, isGhost:false,
+    screenMins:52, lastOpened:'today',
+    paymentHistory:'Active listener',
+    verdict:'Good value — 52 min today. Keep this one.'
+  },
+  {
+    name:'Hotstar', icon:'⭐', color:'#1f80e0', bg:'rgba(31,128,224,0.12)',
+    cost:299, annualCost:3588, isGhost:false,
+    screenMins:22, lastOpened:'today',
+    paymentHistory:'Sports + shows active',
+    verdict:'Reasonable usage. Worth keeping during IPL season.'
+  },
+];
+
+function renderGhostSubs() {
+  const list = document.getElementById('ghost-sub-list');
+  list.innerHTML = ghostSubs.map((g,i) => {
+    const usagePct = Math.min(Math.round((g.screenMins/60)*100),100);
+    const valuePct = Math.min(Math.round((g.cost/2000)*100),100);
+    return `
+    <div class="ghost-sub-card ${g.isGhost?'is-ghost':'is-ok'}">
+      <div class="gsc-header">
+        <div class="gsc-icon" style="background:${g.bg}">${g.icon}</div>
+        <div class="gsc-info">
+          <div class="gsc-name">${g.name}</div>
+          <div class="gsc-cost">₹${g.cost}/mo · ₹${g.annualCost.toLocaleString('en-IN')}/yr</div>
+        </div>
+        <div class="gsc-right">
+          <div class="gsc-status ${g.isGhost?'ghost':'ok'}">${g.isGhost?'👻 Ghost':'✅ Active'}</div>
+          <div style="font-size:0.6rem;font-family:var(--mono);color:var(--text-3);margin-top:0.2rem;">Last: ${g.lastOpened}</div>
+        </div>
+      </div>
+      <div class="gsc-body">
+        <div class="gsc-usage-row">
+          <div class="gsc-usage-label">Screen time</div>
+          <div class="gsc-usage-bar-wrap">
+            <div class="gsc-usage-bar" style="width:${usagePct}%;background:${g.isGhost?'var(--red)':'var(--green)'}"></div>
+          </div>
+          <div class="gsc-usage-val" style="color:${g.isGhost?'var(--red)':'var(--green)'}">${g.screenMins}m</div>
+        </div>
+        <div class="gsc-usage-row">
+          <div class="gsc-usage-label">Cost/month</div>
+          <div class="gsc-usage-bar-wrap">
+            <div class="gsc-usage-bar" style="width:${valuePct}%;background:var(--orange)"></div>
+          </div>
+          <div class="gsc-usage-val" style="color:var(--orange)">₹${g.cost}</div>
+        </div>
+        <div style="font-size:0.7rem;font-family:var(--mono);color:var(--text-2);line-height:1.6;margin-bottom:0.6rem;">${g.verdict}</div>
+        ${g.isGhost ? `
+        <div class="gsc-action-row">
+          <button class="gsc-btn cancel" onclick="cancelSub(${i},'${g.name}')">Cancel Subscription</button>
+          <button class="gsc-btn keep" onclick="toast('Reminder set for ${g.name}!')">Remind Me</button>
+        </div>` : `
+        <div style="font-size:0.65rem;font-family:var(--mono);color:var(--green);">✓ ${g.paymentHistory}</div>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function cancelSub(i, name) {
+  const cards = document.querySelectorAll('.ghost-sub-card');
+  if(cards[i]) {
+    cards[i].style.opacity = '0.4';
+    cards[i].style.transform = 'scale(0.97)';
+    cards[i].style.transition = 'all 0.4s ease';
+  }
+  toast(`✂️ ${name} cancellation initiated! Saving ₹${ghostSubs[i].cost}/month`);
+}
+
+/* ═══ PERMISSION FLOW ═══ */
+function grantPermission() {
+  document.getElementById('perm-overlay').classList.add('show');
+}
+function dismissPermOverlay() {
+  document.getElementById('perm-overlay').classList.remove('show');
+  document.getElementById('perm-banner').style.display = 'none';
+  document.getElementById('screentime-content').style.display = 'block';
+  renderAppUsage();
+  renderWeeklyChart();
+  toast('📱 Screen time access granted!');
+}
+
+/* ═══ DAY TABS ═══ */
+function setDayTab(el) {
+  document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderAppUsage();
+}
+
+/* ═══ SYNC ═══ */
+function doSync() {
+  const btn = document.querySelector('.big-sync-btn');
+  btn.textContent = '⏳ Syncing...';
+  btn.style.opacity = '0.7';
+  setTimeout(() => {
+    btn.innerHTML = '<span>🔄</span> Push Screen Time to Desktop';
+    btn.style.opacity = '1';
+    document.getElementById('data-sent-banner').classList.add('show');
+    toast('✅ Screen time pushed to desktop!');
+  }, 1800);
+}
+
+/* ═══ INIT ═══ */
+renderGhostSubs();
+</script>
+</body>
+</html>
